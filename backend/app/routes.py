@@ -12,7 +12,7 @@ messages_default = [
     {"id": 2, "message": "Como é seu primeiro acesso, por favor, digite seu nome:"},
     {"id": 3, "message": "Mensagem inválida, escolha uma das opções!"},
     {"id": 4, "message": "Obrigado por usar nosso serviço!"},
-    {"id": 5, "message": "Deseja continuar?\n0-Sim\n1-Não"}
+    {"id": 5, "message": "Deseja continuar?\n0-Não\n1-Sim"}
 ]
 
 router = APIRouter()
@@ -24,34 +24,38 @@ async def home():
 
     return {"messages": "Bem vindo ao BotJosé!", "instância": instance_name}
 
-@router.post("/")
+@router.post("/create_message")
 async def create_message(message: MessageSchema, session:Session=Depends(get_session)):
     try:
-        user = session.query(User).filter(User.number == message.number).first()
+        message = message.model_dump()
+        user = session.query(User).filter(User.number == message["number"]).first()
         if not user:
-            user = User(number=message.number)
+            user = User(number=message["number"])
             create_instance(session, user)
             user.last_received_message = messages_default[1]["message"]
-            update_instance(session)
+            update_instance(session, user)
             return {"message": messages_default[1]["message"]}
 
-        elif user.last_received_message == messages_default[1]["message"] or user.last_received_message == None or user.last_sent_message == None:
+
+        
+        elif user.last_received_message == messages_default[1]["message"] or (user.last_received_message == None and user.last_sent_message == None):
 
             user.last_received_message = messages_default[0]["message"]
             user.last_sent_message = None
-            update_instance(session)
+            update_instance(session, user)
             return {"message": messages_default[0]["message"]}
         
         elif user.last_received_message == messages_default[0]["message"]:
-            if (message.message == "0" or message.message.lower() == "sair"):
+            print(message["message"])
+            if (message["message"] == "0" or message["message"].lower() == "sair"):
                 user.last_received_message = None
                 user.last_sent_message = None
-                update_instance(session)
+                update_instance(session, user)
                 return {"message": messages_default[3]["message"]}
-            elif (message.message == "1" or message.message.lower() == "responder questão aleatória"):
-                
-                user.last_sent_message = message.message
-                
+            elif (message["message"] == "1" or message["message"].lower() == "responder questão aleatória"):
+                print("Chegou aqui 3")
+
+                user.last_sent_message = message["message"]
 
                 questions = session.query(Question).all()
                 max_random = len(questions) - 1
@@ -60,7 +64,7 @@ async def create_message(message: MessageSchema, session:Session=Depends(get_ses
                 choices = session.query(Choices).filter(Choices.question_id == random_question.id).all()
 
                 user.last_received_message = "question:" + str(random_question.id)
-                update_instance(session)
+                update_instance(session, user)
 
                 message = "Pergunta: " + random_question.question + "\n\nEscolha uma das opções:\n"
                 for choice in choices:
@@ -71,19 +75,23 @@ async def create_message(message: MessageSchema, session:Session=Depends(get_ses
             question_id = int(str(user.last_received_message).split(":")[1])
             question = session.query(Question).filter(Question.id == question_id).first()
             if question:
-                if (message.message.isdigit()):
-                    choice_id = int(message.message)
+                if (message["message"].isdigit()):
+                    choice_id = int(message["message"])
                     choice = session.query(Choices).filter(Choices.id == choice_id).first()
                     if choice:
                         user.last_received_message = messages_default[0]["message"]
                         user.last_sent_message = None
+                        update_instance(session, user)
                         if (choice.is_right):
                             return {"message": f"Resposta correta!\n{messages_default[4]['message']}"}
                         else:
-                            return {"message": f"Resposta errada, tente novamente!\n{messages_default[5]['message']}"}
-    finally:
-        return {"message": messages_default[2]["message"]}
-    
+                            return {"message": f"Resposta errada, tente novamente!\n{messages_default[4]['message']}"}
+        
+        return {"message": "Resposta inválida, tente novamente."}
+    except TypeError as err:
+        print(err)
+        return HTTPException(status_code=400, detail={"message": "Erro ao processar mensagem."})
+
 
 
 @router.post("/create_question")

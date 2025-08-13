@@ -19,8 +19,9 @@ def create_instance(session: Session, obj):
     session.commit()
     session.refresh(obj)
 
-def update_instance(session: Session):
+def update_instance(session: Session, obj):
     """
     Update an existing instance of a SQLAlchemy model.
     """
     session.commit()
+    session.refresh(obj)
