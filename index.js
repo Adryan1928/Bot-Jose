@@ -2,11 +2,17 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const axios = require('axios');
 
-const URL = 'http://localhost:8000/create_message/';
+const URL = 'http://localhost/create_message/';
 
 const client = new Client({
     authStrategy: new LocalAuth()
 });
+
+console.log("rodando..")
+
+client.on('auth_failure', msg => {
+    console.error('Falha na autenticação:', msg);
+})
 
 client.on('ready', () => {
     console.log('Cliente conectado!');

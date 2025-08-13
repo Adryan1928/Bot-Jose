@@ -1,4 +1,9 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y \
+    libpq-dev \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -10,5 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# comando padrão (em dev usamos --reload)
-CMD ["uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+# Copia o entrypoint e dá permissão
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+# Muda o diretório de trabalho para /app/app para corrigir os imports
+WORKDIR /app/app
+
+# Usa o entrypoint para aplicar migrações antes de iniciar o FastAPI
+CMD ["/app/entrypoint.sh"]
